@@ -1,0 +1,14 @@
+<?php 
+
+$username = "your_twitter_username";
+$difffile_filename = "/your/path/twitter_diff.txt";
+$countfile_filename = "/your/path/twitter_count.txt";
+$email_recipient = "your@email.com";
+
+// Twitter API details. Create a new app with Twitter under your user, and grant yourself
+// an access token. Place all the info here. 
+$consumer_key = "";
+$consumer_secret = "";
+$oauth_access_token = "";
+$oauth_access_token_secret = "";
+
