@@ -1,7 +1,7 @@
 <?php
 
 include_once 'config.php';
-
+error_reporting(E_ALL);
 
 logline("Starting run. ");
 logline("Rotating difffile.. ");
@@ -46,22 +46,54 @@ $num_chunks = count($chunks);
 logline("Getting data for {$count_followers} followers");
 
 $i=1;
+$all_data = array();
 
 foreach($chunks as $this_chunk) {
     logline("Getting chunk {$i} of {$num_chunks}"); 
-    if(!$data_chunk[] = json_decode(doOAuthCall("https://api.twitter.com/1.1/users/lookup.json", array("user_id" => implode($this_chunk, ","), "include_entities" => "false")))) {
-        logline("Getting chunk failed, retrying...");
-        if(!$data_chunk[] = json_decode(doOAuthCall("https://api.twitter.com/1.1/users/lookup.json", array("user_id" => implode($this_chunk, ","), "include_entities" => "false")))) {
+    if(!$try_chunk = tryChunk($this_chunk)) {
+        logline("Getting chunk failed, retrying in 20 seconds...");
+        sleep(20);
+        logline("Re-attempting chunk {$i} of {$num_chunks}");
+        if(!$try_chunk = tryChunk($this_chunk)) {
             logline("Getting chunk failed twice, sorry.");
         }
     }
+    $all_data = array_merge($all_data, $try_chunk);
     $i++;
 }
 
-foreach ($data_chunk as $this_chunk) {
-    foreach($this_chunk as $this_user) {
-        $user_data[$this_user->id] = $this_user;
-    }	
+function tryChunk(array $chunk) {
+    if (!$return_data = doOAuthCall("https://api.twitter.com/1.1/users/lookup.json", array("user_id" => implode($chunk, ","), "include_entities" => "false"))) {
+        return false;
+    }
+
+    $json = json_decode($return_data);
+
+    if ($json === NULL) {
+        return false;
+    }
+
+    if (count($json) < 1) {
+        return false;
+    }
+
+    if (isset($json->errors)) {
+        $error_response = array_shift($json->errors);
+        logline("tryChunk: Twitter API returned an error (code '" . $error_response->code . "', message: '" . $error_response->message . "')");
+        return false;
+    }
+
+    // Even more hilariously, sometimes Twitter even returns their HTML fail whale. Try and catch that since json_decode doesn't seem to
+    if (is_string($json)) {
+        logline("Twitter gave us HTML, or some other string. Thanks Twitter. This normally means over capacity.");
+        return false;
+    }
+
+    return $json;
+}
+
+foreach($all_data as $this_user) {
+    $user_data[$this_user->id] = $this_user;
 }
 ksort($user_data);
 // By this point we now have an array called $user_data with the current followers and their data. 
